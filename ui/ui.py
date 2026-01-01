@@ -33,6 +33,12 @@ def show_title_screen(stdscr, motd, player):
     while True:
         stdscr.clear()
 
+        if(stdscr.getmaxyx()[0] < 28):
+            stdscr.addstr(0,0,"Window too small. Please resize.")
+            stdscr.refresh()
+            stdscr.getkey() #block until the player resizes
+            return
+
         # Display intro splash
         for i, line in enumerate(lines):
             stdscr.addstr(i + 1, 2, line.strip())
@@ -47,19 +53,21 @@ def show_title_screen(stdscr, motd, player):
             stdscr.addstr(len(lines) + 6 + i, 4, prefix + option)
 
         stdscr.refresh()
-
-        key = stdscr.getkey().lower()
-        if key == "w" and selected > 0:
-            selected -= 1
-        elif key == "s" and selected < len(options) - 1:
-            selected += 1
-        elif key == "\n":
-            if options[selected] == "New Game":
-                return "new"
-            elif options[selected] == "Settings":
-                show_settings_menu(stdscr, player)
-            elif options[selected] == "Quit":
-                return "quit"
+        try:
+            key = stdscr.getkey().lower()
+            if key == "w" and selected > 0:
+                selected -= 1
+            elif key == "s" and selected < len(options) - 1:
+                selected += 1
+            elif key == "\n":
+                if options[selected] == "New Game":
+                    return "new"
+                elif options[selected] == "Settings":
+                    show_settings_menu(stdscr, player)
+                elif options[selected] == "Quit":
+                    return "quit"
+        except:
+            continue
 
 from game.settings import save_settings  # Add this at the top of your file
 
