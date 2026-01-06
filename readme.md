@@ -72,6 +72,8 @@ World reset, legacy mechanics, seasonal cycles
 
 **Alex** — Writer, designer, and debugging necromancer. Currently developing LocalMUD as a personal project. Loves serialized storytelling, retro game aesthetics, and cursed ladles.
 
+Code Contributions from - thydungeonman 
+
 ---
 
 ## Contact & Feedback
