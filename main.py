@@ -1,370 +1,437 @@
-import curses
-import random
-
-from game.rooms   import rooms
-from game.npcs import NPC_DEFS
-from game.items   import items
-from game.player  import player as initial_player
-from game.parser  import handle_command, verify_room_links
-from config  import get_motd, VERSION, DEV_NOTE
-from ui.ui      import show_title_screen, show_game_over_menu, draw_ui, wrap_text, show_settings_menu 
-from world.overworld import load_overworld
-from utils.log_manager import cleanup_old_logs, log_room_error
-from game.settings import load_settings
-
-
-from game.character import (
-    create_character,
-    get_eligible_classes,
-    create_character_non_curses
-)
-
-
-cleanup_old_logs()
-
-def return_to_title(stdscr):
-    curses.flash()
-    stdscr.clear()
-    launch(stdscr)  # Restart the game loop
-
-
-def launch(stdscr, player):
-    # Outer loop lets us restart without exiting the program
-    while True:
-        
-        # Load game data
-        rooms = load_overworld()
-        items = {}  # Load or define items here
-        NPC_DEFS = {}  # Load or define NPCs here
-        current_motd = get_motd()
-        message_log = []
-        settings = load_settings()
-        player.update(settings)
-
-        # Set starting room
-        player["location"] = "chapel_0_0_0"
-
-        """
-        # Validate starting room
-        if player["location"] not in rooms:
-            from utils.log_manager import log_room_error
-            print("[ERROR] Starting room not found. Teleporting to fallback.")
-
-        # Log the error with context
-        log_room_error(
-            current_room="(initial spawn)",
-            attempted_coords=player["location"],
-            attempted_direction="initial spawn",
-            rooms={"(initial spawn)": {"name": "Game Start"}}
-        )
-
-        # Fallback to safe room
-        player["location"] = "chapel_0_0_0" if "chapel_0_0_0" in rooms else list(rooms.keys())[0]
-
-        """
-        # Initialize game state
-        game_state = {
-            "current_room": player["location"],
-            "restart": False,
-            "game_over": False
-        }
-    
-
-        current_motd = get_motd()
-        message_log  = []
-
-        # Load settings
-        settings = load_settings()
-
-        # Create default player and inject settings
-        player = {
-            "name":             "",
-            "background":       "",
-            "hp":               10,
-            "max_hp":           10,
-            "xp":               0,
-            "inventory":        [],
-            "location":         "chapel_0_0_0",
-            "max_hp_bonus":     False,
-            "verbose_travel":   False,
-            "screen_reader_mode": False,
-            "debug_mode":       False
-        }
-
-        player.update(settings)
-
-
-        # Show title screen and allow settings access
-        choice = show_title_screen(stdscr, current_motd, player)
-
-        if choice == "restart":
-            continue
-        if choice == "quit":
-            return
-        elif choice == "new":
-            # Screen-reader (non-curses) path
-            if player.get("screen_reader_mode"):
-                print(f"DEBUG: Screen Reader Mode is {'ON' if player.get('screen_reader_mode') else 'OFF'}")
-                run_non_curses_mode(player, rooms, items, current_motd, NPC_DEFS)
-                return
-
-            # Curses-based character creation (skip intro press‐any‐key)
-            curses.curs_set(1)
-            stdscr.nodelay(False)
-            stdscr.keypad(True)
-
-            # Loop until valid character created
-            new_player = None
-            while new_player is None:
-                print("DEBUG: About to enter create_character()")
-                new_player = create_character(stdscr, player)
-                print("DEBUG: Returned from create_character()")
-
-            player = new_player
-
-            # Roll intro text
-            intro_text = [
-                "The chapel is dusty and quiet. Its silence feels safe—but not empty. "
-                "The air is thick with memory. Spirits rest here, but their posture is unclear. "
-                "You are either being welcomed... or warned.",
-
-                "The country of Eldermere cannot be allowed to fall. Somewhere in these walls lies the answer. "
-                "The Oracle lived many lifetimes ago. If anyone still knows the path, it is him.",
-
-                "There must be a way to reach him. The time for answers is now."
-            ]
-
-            height, width = stdscr.getmaxyx()
-            verify_room_links(rooms)
-
-            for paragraph in intro_text:
-                wrapped = wrap_text(paragraph, width - 4)
-                message_log.extend(wrapped)
-                message_log.append("")
-
-            # Enter main game loop
-            main_loop(stdscr, game_state, player, rooms, items, current_motd, message_log, NPC_DEFS)
-
-            if not game_state.get("restart"):
-                break
-
-
-def run_non_curses_mode(player, rooms, items, motd, NPC_DEFS):
-    print("DEBUG: Entered run_non_curses_mode()")
-    print("Screen Reader Mode enabled. Switching to plain text interface...\n")
-    print(f"MOTD: {motd}\n")
-
-    # Character creation
-    print("DEBUG: Starting character creation")
-    player = create_character_non_curses(player)
-
-    # Intro text
-    intro_text = [
-        "The chapel is dusty and quiet. Its silence feels safe—but not empty...",
-        "The country of Eldermere cannot be allowed to fall...",
-        "There must be a way to reach him. The time for answers is now."
-    ]
-    for paragraph in intro_text:
-        print(paragraph)
-        input("Press Enter to continue...\n")
-
-    # Initial room description
-    current_room = player["location"]
-    print(f"You are in {rooms[current_room]['name']}")
-    print(rooms[current_room]["look_description"])
-    print()
-
-    message_log = []
-
-    # Main input loop
-    print("DEBUG: Entering input loop")
-    while True:
-        command = input("> ").strip().lower()
-        if command in ("quit", "exit"):
-            print("Thanks for playing!")
-            break
-
-        result = handle_command(
-            command,
-            {"current_room": current_room},
-            player,
-            rooms,
-            items,
-            motd,
-            message_log,
-            NPC_DEFS
-        )
-
-        if isinstance(result, list):
-            for line in result:
-                print(line)
-        elif isinstance(result, str):
-            if result == "quit":
-                print("Thanks for playing LocalMUD!")
-                break
-            else:
-                print(result)
-
-        current_room = player["location"]
-        print()
-
-
-def handle_idle_npc_actions(current_room, NPC_DEFS, message_log):
-    present = NPC_DEFS.get(current_room, [])
-    for npc in present:
-        idle_lines = npc.get("idle_actions", [])
-        if idle_lines and random.random() < 0.25:
-            message_log.append(random.choice(idle_lines))
-
-
-def main_loop(stdscr, game_state, player, rooms, items, current_motd, message_log, NPC_DEFS):
-    curses.curs_set(1)
-    stdscr.nodelay(False)
-
-    while True:
-        draw_ui(stdscr, game_state, player, rooms, message_log)
-
-        height, width = stdscr.getmaxyx()
-        input_y = height - 2
-        stdscr.addstr(input_y, 2, "> ")
-        stdscr.refresh()
-
-        # ─── Enhanced Input with Command History ───
-        history = game_state.setdefault("command_history", [])
-        history_index = -1
-        input_buffer = ""
-
-        stdscr.move(input_y, 4)
-        stdscr.clrtoeol()
-        curses.curs_set(1)
-        stdscr.refresh()
-
-        while True:
-            key = stdscr.getch()
-
-            if key in (curses.KEY_ENTER, 10, 13):  # Enter
-                raw = input_buffer.strip()
-                break
-
-            elif key == curses.KEY_UP:
-                if history:
-                    history_index = max(0, history_index - 1)
-                    input_buffer = history[history_index]
-                    stdscr.move(input_y, 4)
-                    stdscr.clrtoeol()
-                    stdscr.addstr(input_y, 4, input_buffer)
-                    stdscr.refresh()
-
-            elif key == curses.KEY_DOWN:
-                if history:
-                    history_index += 1
-                    if history_index >= len(history):
-                        history_index = -1
-                        input_buffer = ""
-                    else:
-                        input_buffer = history[history_index]
-                    stdscr.move(input_y, 4)
-                    stdscr.clrtoeol()
-                    stdscr.addstr(input_y, 4, input_buffer)
-                    stdscr.refresh()
-
-            elif key in (curses.KEY_BACKSPACE, 127, 8):
-                input_buffer = input_buffer[:-1]
-                stdscr.move(input_y, 4)
-                stdscr.clrtoeol()
-                stdscr.addstr(input_y, 4, input_buffer)
-                stdscr.refresh()
-
-            elif 32 <= key <= 126:  # Printable characters
-                input_buffer += chr(key)
-                stdscr.addstr(input_y, 4 + len(input_buffer) - 1, chr(key))
-                stdscr.refresh()
-
-            else:
-                continue  # Ignore other keys
-
-        curses.curs_set(0)
-        stdscr.move(input_y, 4)
-        stdscr.clrtoeol()
-        curses.noecho()
-
-        if raw:
-            message_log.append(f"> {raw}")
-            if raw not in history:
-                history.append(raw)
-                if len(history) > 10:
-                    history.pop(0)
-
-
-        # ─── Run parser ───
-        result = handle_command(
-            raw,
-            game_state,
-            player,
-            rooms,
-            items,
-            current_motd,
-            message_log,
-            NPC_DEFS
-        )
-
-        # ─── Handle parser output ───
-        if isinstance(result, list):
-            message_log.extend(result)
-        elif isinstance(result, str):
-            if result == "quit":
-                message_log.append("Thanks for playing LocalMUD!")
-                break
-            else:
-                message_log.append(result)
-
-        message_log.append("")
-
-        # ─── NPC idle actions ───
-        handle_idle_npc_actions(game_state["current_room"], NPC_DEFS, message_log)
-
-        # ─── “Return to title” confirmation ───
-        if result == "confirm_title":
-            stdscr.clear()
-            stdscr.addstr(5, 4, "Return to title screen? [Y]es / [N]o")
-            stdscr.refresh()
-            key = stdscr.getkey().lower()
-            if key == "y":
-                curses.flash()
-                stdscr.clear()
-                launch(stdscr, player)
-                return
-            else:
-                message_log.append("Return canceled.")
-
-        # ─── Check for Game Over ───
-        if game_state.get("game_over"):
-            choice = show_game_over_menu(stdscr, player)
-            if choice == "restart":
-                game_state["restart"] = True
-
-
-if __name__ == "__main__":
-
-    # Load settings and initialize player globally
-    settings = load_settings()
-    player = {
-        "name":             "",
-        "background":       "",
-        "hp":               10,
-        "max_hp":           10,
-        "xp":               0,
-        "inventory":        [],
-        "location":         "chapel_0_0_0",
-        "max_hp_bonus":     False,
-        "verbose_travel":   False,
-        "screen_reader_mode": False,
-        "debug_mode":       False
+# main.py
+
+import json
+import os
+
+print("LocalMUD is starting...")
+
+try:
+    SAVE_FILE = "savegame.json"
+
+    # ---------------------------------------------------------
+    # Item Definitions
+    # ---------------------------------------------------------
+    class Item:
+        def __init__(self, id, name, description, use_effect=None):
+            self.id = id
+            self.name = name
+            self.description = description
+            self.use_effect = use_effect
+
+        def to_dict(self):
+            return {
+                "id": self.id,
+                "name": self.name,
+                "description": self.description,
+                "use_effect": self.use_effect
+            }
+
+        @staticmethod
+        def from_dict(data):
+            return Item(
+                data["id"],
+                data["name"],
+                data["description"],
+                data.get("use_effect")
+            )
+
+    ITEMS = {
+        "rusty_key_01": Item(
+            "rusty_key_01",
+            "rusty key",
+            "A corroded iron key. It looks like it might still work.",
+            use_effect="unlock_study_door"
+        ),
+        "torch_01": Item(
+            "torch_01",
+            "torch",
+            "A wooden torch. It is unlit."
+        ),
     }
-    player.update(settings)
 
+    # ---------------------------------------------------------
+    # Core Data Structures
+    # ---------------------------------------------------------
+    class Room:
+        def __init__(self, id, name, description, exits=None, items=None, locked_exits=None):
+            self.id = id
+            self.name = name
+            self.description = description
+            self.exits = exits or {}
+            self.items = items or []
+            self.locked_exits = locked_exits or {}
 
-    if player.get("screen_reader_mode"):
-        run_non_curses_mode(player, rooms, items, get_motd(), NPC_DEFS)
-    else:
-        curses.wrapper(lambda stdscr: launch(stdscr, player))
+        def to_dict(self):
+            return {
+                "items": self.items,
+                "locked_exits": self.locked_exits
+            }
+
+        def load_from_dict(self, data):
+            self.items = data.get("items", [])
+            self.locked_exits = data.get("locked_exits", {})
+
+    def default_stats():
+        return {
+            "str": 12,
+            "dex": 11,
+            "con": 14,
+            "int": 10,
+            "wis": 10,
+            "cha": 10,
+        }
+
+    class Player:
+        def __init__(self, starting_room):
+            self.current_room_id = starting_room
+            self.inventory = []
+            self.stats = default_stats()
+            self.max_hp = 10 + self.modifier("con") * 2
+            self.hp = self.max_hp
+
+        def modifier(self, stat_name):
+            score = self.stats.get(stat_name, 10)
+            return (score - 10) // 2
+
+        def to_dict(self):
+            return {
+                "current_room_id": self.current_room_id,
+                "inventory": self.inventory,
+                "stats": self.stats,
+                "hp": self.hp,
+                "max_hp": self.max_hp
+            }
+
+        def load_from_dict(self, data):
+            self.current_room_id = data.get("current_room_id", "foyer")
+            self.inventory = data.get("inventory", [])
+            self.stats = data.get("stats", default_stats())
+            self.max_hp = data.get("max_hp", 10 + self.modifier("con") * 2)
+            self.hp = data.get("hp", self.max_hp)
+
+    class GameState:
+        def __init__(self, rooms, player):
+            self.rooms = rooms
+            self.player = player
+            self.running = True
+
+        def to_dict(self):
+            return {
+                "player": self.player.to_dict(),
+                "rooms": {rid: room.to_dict() for rid, room in self.rooms.items()}
+            }
+
+        def load_from_dict(self, data):
+            if "player" in data:
+                self.player.load_from_dict(data["player"])
+            if "rooms" in data:
+                for rid, rdata in data["rooms"].items():
+                    if rid in self.rooms:
+                        self.rooms[rid].load_from_dict(rdata)
+
+    # ---------------------------------------------------------
+    # World Builder
+    # ---------------------------------------------------------
+    def build_world():
+        foyer = Room(
+            "foyer",
+            "Foyer",
+            "You are standing in a small foyer. A hallway leads north.",
+            {"north": "hallway"},
+            items=["rusty_key_01"]
+        )
+
+        hallway = Room(
+            "hallway",
+            "Hallway",
+            "A narrow hallway stretches east and west. The foyer is south.",
+            {"south": "foyer", "west": "kitchen", "east": None},
+            items=[],
+            locked_exits={"east": "unlock_study_door"}
+        )
+
+        study = Room(
+            "study",
+            "Study",
+            "A quiet study lined with books. The hallway is to the west.",
+            {"west": "hallway"},
+            items=["torch_01"]
+        )
+
+        kitchen = Room(
+            "kitchen",
+            "Kitchen",
+            "A cozy kitchen that smells faintly of coffee. The hallway is to the east.",
+            {"east": "hallway"},
+            items=[]
+        )
+
+        rooms = {
+            "foyer": foyer,
+            "hallway": hallway,
+            "study": study,
+            "kitchen": kitchen,
+        }
+
+        player = Player("foyer")
+        return GameState(rooms, player)
+
+    # ---------------------------------------------------------
+    # Utility
+    # ---------------------------------------------------------
+    def get_current_room(gs):
+        return gs.rooms[gs.player.current_room_id]
+
+    def find_item_by_name(name, item_ids):
+        name = name.lower()
+        for iid in item_ids:
+            item = ITEMS[iid]
+            if item.name.lower() == name:
+                return iid
+        return None
+
+    def format_stat_line(label, score, mod):
+        sign = "+" if mod >= 0 else ""
+        return f"{label.upper():3} {score:2} ({sign}{mod})"
+
+    # ---------------------------------------------------------
+    # Save / Load Helpers
+    # ---------------------------------------------------------
+    def save_game(gs):
+        data = gs.to_dict()
+        with open(SAVE_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+        return "Game saved."
+
+    def load_game(gs):
+        if not os.path.exists(SAVE_FILE):
+            return "No save file found."
+
+        with open(SAVE_FILE, "r") as f:
+            data = json.load(f)
+
+        gs.load_from_dict(data)
+        return "Game loaded."
+
+    # ---------------------------------------------------------
+    # Command Handlers
+    # ---------------------------------------------------------
+    def cmd_look(gs, arg):
+        room = get_current_room(gs)
+        text = f"{room.name}\n{room.description}\n"
+
+        if room.items:
+            item_names = ", ".join(ITEMS[i].name for i in room.items)
+            text += f"You see here: {item_names}\n"
+
+        exits = []
+        for direction, target in room.exits.items():
+            if target is None:
+                exits.append(f"{direction} (locked)")
+            else:
+                exits.append(direction)
+
+        if exits:
+            text += "Exits: " + ", ".join(exits)
+        else:
+            text += "There are no obvious exits."
+
+        return text
+
+    def cmd_go(gs, direction):
+        if not direction:
+            return "Go where?"
+
+        room = get_current_room(gs)
+
+        if direction not in room.exits:
+            return f"You can't go '{direction}' from here."
+
+        if room.exits[direction] is None:
+            return f"The way {direction} is locked."
+
+        gs.player.current_room_id = room.exits[direction]
+        return f"You go {direction}.\n\n{cmd_look(gs, '')}"
+
+    def cmd_inventory(gs, arg):
+        inv = gs.player.inventory
+        if not inv:
+            return "You are carrying nothing."
+        names = ", ".join(ITEMS[i].name for i in inv)
+        return f"You are carrying: {names}"
+
+    def cmd_examine(gs, arg):
+        if not arg:
+            return "Examine what?"
+
+        room = get_current_room(gs)
+        inv = gs.player.inventory
+
+        iid = find_item_by_name(arg, inv)
+        if iid:
+            return ITEMS[iid].description
+
+        iid = find_item_by_name(arg, room.items)
+        if iid:
+            return ITEMS[iid].description
+
+        return f"You see no '{arg}'."
+
+    def cmd_take(gs, arg):
+        if not arg:
+            return "Take what?"
+
+        room = get_current_room(gs)
+        iid = find_item_by_name(arg, room.items)
+        if not iid:
+            return f"There is no '{arg}' here."
+
+        room.items.remove(iid)
+        gs.player.inventory.append(iid)
+        return f"You take the {ITEMS[iid].name}."
+
+    def cmd_drop(gs, arg):
+        if not arg:
+            return "Drop what?"
+
+        inv = gs.player.inventory
+        iid = find_item_by_name(arg, inv)
+        if not iid:
+            return f"You aren't carrying '{arg}'."
+
+        gs.player.inventory.remove(iid)
+        get_current_room(gs).items.append(iid)
+        return f"You drop the {ITEMS[iid].name}."
+
+    def cmd_use(gs, arg):
+        if not arg:
+            return "Use what?"
+
+        inv = gs.player.inventory
+        iid = find_item_by_name(arg, inv)
+        if not iid:
+            return f"You aren't carrying '{arg}'."
+
+        item = ITEMS[iid]
+        if not item.use_effect:
+            return f"You can't use the {item.name}."
+
+        room = get_current_room(gs)
+
+        for direction, effect in list(room.locked_exits.items()):
+            if effect == item.use_effect:
+                room.exits[direction] = "study"
+                del room.locked_exits[direction]
+                return f"You use the {item.name}. You hear a loud click — the door to the {direction} is now unlocked."
+
+        return f"Using the {item.name} has no effect here."
+
+    def cmd_stats(gs, arg):
+        p = gs.player
+        lines = []
+        for label in ["str", "dex", "con", "int", "wis", "cha"]:
+            score = p.stats.get(label, 10)
+            mod = p.modifier(label)
+            lines.append(format_stat_line(label, score, mod))
+        lines.append(f"HP {p.hp}/{p.max_hp}")
+        return "\n".join(lines)
+
+    def cmd_quit(gs, arg):
+        gs.running = False
+        return "Goodbye."
+
+    def cmd_help(gs, arg):
+        return (
+            "Available commands:\n"
+            "  look / l\n"
+            "  go <direction>\n"
+            "  examine <item>\n"
+            "  take <item>\n"
+            "  drop <item>\n"
+            "  use <item>\n"
+            "  inventory / i\n"
+            "  stats\n"
+            "  save\n"
+            "  load\n"
+            "  quit / exit\n"
+            "  help\n"
+        )
+
+    def cmd_save(gs, arg):
+        return save_game(gs)
+
+    def cmd_load(gs, arg):
+        return load_game(gs)
+
+    # ---------------------------------------------------------
+    # Command Registry
+    # ---------------------------------------------------------
+    COMMANDS = {
+        "look": cmd_look,
+        "l": cmd_look,
+        "go": cmd_go,
+        "move": cmd_go,
+        "inventory": cmd_inventory,
+        "inv": cmd_inventory,
+        "i": cmd_inventory,
+        "examine": cmd_examine,
+        "x": cmd_examine,
+        "take": cmd_take,
+        "get": cmd_take,
+        "drop": cmd_drop,
+        "use": cmd_use,
+        "stats": cmd_stats,
+        "quit": cmd_quit,
+        "exit": cmd_quit,
+        "help": cmd_help,
+        "?": cmd_help,
+        "save": cmd_save,
+        "load": cmd_load,
+    }
+
+    # ---------------------------------------------------------
+    # Parser + Dispatcher
+    # ---------------------------------------------------------
+    def parse_command(cmd):
+        cmd = cmd.strip().lower()
+        if not cmd:
+            return "", ""
+        parts = cmd.split(maxsplit=1)
+        if len(parts) == 1:
+            return parts[0], ""
+        return parts[0], parts[1]
+
+    def dispatch(cmd, gs):
+        verb, arg = parse_command(cmd)
+
+        if verb == "":
+            return "You must type something."
+
+        if verb in COMMANDS:
+            return COMMANDS[verb](gs, arg)
+
+        return f"Unknown command: '{verb}'. Type 'help' for a list of commands."
+
+    # ---------------------------------------------------------
+    # Main Game Loop
+    # ---------------------------------------------------------
+    def main():
+        gs = build_world()
+
+        print("Welcome to LocalMUD (Minimal Core).")
+        print("Type 'help' for commands.\n")
+        print(cmd_look(gs, ""))
+
+        while gs.running:
+            command = input("\n> ")
+            print()
+            print(dispatch(command, gs))
+
+    if __name__ == "__main__":
+        main()
+
+except Exception:
+    import traceback
+    print("\n--- CRASH DETECTED ---")
+    traceback.print_exc()
+    input("\nPress Enter to exit...")

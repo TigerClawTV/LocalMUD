@@ -1,0 +1,24 @@
+{
+  "player": {
+    "current_room_id": "hallway",
+    "inventory": [
+      "iron_key_01"
+    ]
+  },
+  "rooms": {
+    "foyer": {
+      "items": []
+    },
+    "hallway": {
+      "items": []
+    },
+    "study": {
+      "items": [
+        "torch_01"
+      ]
+    },
+    "kitchen": {
+      "items": []
+    }
+  }
+}

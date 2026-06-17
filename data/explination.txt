@@ -1,7 +1,0 @@
-├── data/
-│   ├── items.json           # Item definitions
-│   ├── npcs.json            # NPC dialogue and attributes
-│   └── rooms.json           # Room layout and descriptions
-
-Items, NPCs, and Rooms, will all eventually split into two files. The original .py files will
-determine HOW THEY WORK, and the .json files will define WHAT EACH ITEM/NPC/ROOM IS.

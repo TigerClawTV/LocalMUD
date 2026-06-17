@@ -1,1 +1,0 @@
-this is where sound and art files will go.

@@ -1,4 +1,5 @@
 @echo off
-cd /d "C:\Users\ajc14\Documents\GitHub\LocalMUD"
+echo LAUNCHER IS RUNNING
+cd /d "%~dp0"
 py main.py
 pause
