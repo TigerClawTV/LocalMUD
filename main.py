@@ -409,6 +409,17 @@ try:
 
         if verb in COMMANDS:
             return COMMANDS[verb](gs, arg)
+        else:
+            if arg == "": #we typed in only one thing
+                match verb:
+                    case "n":
+                        return COMMANDS["go"](gs,"north")
+                    case "s":
+                        return COMMANDS["go"](gs,"south")
+                    case "e":
+                        return COMMANDS["go"](gs,"east")
+                    case "w":
+                        return COMMANDS["go"](gs,"west")
 
         return f"Unknown command: '{verb}'. Type 'help' for a list of commands."
 
