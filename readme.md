@@ -6,17 +6,18 @@ This is a personal game project developed by Alex, originally sparked by a desir
 
 ---
 
-# Changes in version 0.9.0
+# Changes in version 0.9.1 
 
 ### Added
-- [System] Main.py - A nice tight engine with a functioning parser. Not refactored. Still functions from a single sheet of code.
-- [System] Save and load functionality!
-
-### Removed
-- [System] Everything. Scrapped the entire build prior to this and started from scratch. The old mess was zipped up and exists as LegacyMUD.zip for now since it's so small.
+- [System] Simple combat system added!
+- [Parser] Expanded the 'Examine' command to allow for examining monsters.
 
 ### Changed
-- [System] The new build does not use Curses making it much easier to play at the cost of UI flexability. I can no longer use a traditional title screen and menu like the last build had. Now the game really does function like an old school MUD, completely from the console.
+- [System] Restored the old splash screen to display when the game first opens
+
+### Notes
+	-Monster behavior is scattered. I need a single difinitive function that can be called whenever I need the monster to attack.
+	-For examples of this, see the wait command.
 
 ---
 

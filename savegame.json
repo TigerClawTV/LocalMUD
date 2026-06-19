@@ -2,23 +2,50 @@
   "player": {
     "current_room_id": "hallway",
     "inventory": [
-      "iron_key_01"
-    ]
+      "rusty_key_01"
+    ],
+    "stats": {
+      "str": 12,
+      "dex": 11,
+      "con": 14,
+      "int": 10,
+      "wis": 10,
+      "cha": 10
+    },
+    "hp": 3,
+    "max_hp": 14,
+    "exp": 0,
+    "gold": 0
   },
   "rooms": {
     "foyer": {
-      "items": []
+      "items": [],
+      "locked_exits": {},
+      "monsters": []
     },
     "hallway": {
-      "items": []
+      "items": [],
+      "locked_exits": {
+        "east": "unlock_study_door"
+      },
+      "monsters": [
+        {
+          "id": "goblin_01",
+          "hp": 2
+        }
+      ]
     },
     "study": {
       "items": [
         "torch_01"
-      ]
+      ],
+      "locked_exits": {},
+      "monsters": []
     },
     "kitchen": {
-      "items": []
+      "items": [],
+      "locked_exits": {},
+      "monsters": []
     }
   }
 }

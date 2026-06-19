@@ -1,0 +1,18 @@
+  _                     _ __  __ _    _ _____  
+ | |                   | |  \/  | |  | |  __ \ 
+ | |     ___   ___ __ _| | \  / | |  | | |  | |
+ | |    / _ \ / __/ _` | | |\/| | |  | | |  | |
+ | |___| (_) | (_| (_| | | |  | | |__| | |__| |
+ |______\___/ \___\__,_|_|_|  |_|\____/|_____/                               
+                                               
+        Version v0.9.1 - “I live Again"
+
+--------------------------------------------------
+A robust text adventure/RPG in the spirit of classic MUDs except running totally offline!!
+Explore a grand total of 4 rooms! Wow!    Adventure awaits!
+
+Type 'help' to see available commands.
+Type 'quit' to exit the game.
+
+
+

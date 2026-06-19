@@ -2,8 +2,8 @@
 
 import json
 import os
+import random
 
-print("LocalMUD is starting...")
 
 try:
     SAVE_FILE = "savegame.json"
@@ -50,26 +50,73 @@ try:
     }
 
     # ---------------------------------------------------------
+    # Monster Definitions
+    # ---------------------------------------------------------
+    class Monster:
+        def __init__(self, id, name, description, hp, ac, attack_bonus, damage_die, exp_reward, gold_reward):
+            self.id = id
+            self.name = name
+            self.description = description
+            self.hp = hp
+            self.ac = ac
+            self.attack_bonus = attack_bonus
+            self.damage_die = damage_die
+            self.exp_reward = exp_reward
+            self.gold_reward = gold_reward
+
+        def to_dict(self):
+            return {
+                "id": self.id,
+                "hp": self.hp
+            }
+
+        def load_from_dict(self, data):
+            self.hp = data.get("hp", self.hp)
+
+    MONSTERS = {
+        "goblin_01": Monster(
+            "goblin_01",
+            "goblin",
+            "A small, wiry goblin with sharp teeth and a nasty grin.",
+            hp=6,
+            ac=12,
+            attack_bonus=2,
+            damage_die=6,
+            exp_reward=15,
+            gold_reward=5
+        )
+    }
+
+    # ---------------------------------------------------------
     # Core Data Structures
     # ---------------------------------------------------------
     class Room:
-        def __init__(self, id, name, description, exits=None, items=None, locked_exits=None):
+        def __init__(self, id, name, description, exits=None, items=None, locked_exits=None, monsters=None):
             self.id = id
             self.name = name
             self.description = description
             self.exits = exits or {}
             self.items = items or []
             self.locked_exits = locked_exits or {}
+            self.monsters = monsters or []
 
         def to_dict(self):
             return {
                 "items": self.items,
-                "locked_exits": self.locked_exits
+                "locked_exits": self.locked_exits,
+                "monsters": [MONSTERS[m].to_dict() for m in self.monsters]
             }
 
         def load_from_dict(self, data):
             self.items = data.get("items", [])
             self.locked_exits = data.get("locked_exits", {})
+            monster_data = data.get("monsters", [])
+            self.monsters = []
+            for mdata in monster_data:
+                mid = mdata["id"]
+                if mid in MONSTERS:
+                    MONSTERS[mid].load_from_dict(mdata)
+                    self.monsters.append(mid)
 
     def default_stats():
         return {
@@ -88,6 +135,8 @@ try:
             self.stats = default_stats()
             self.max_hp = 10 + self.modifier("con") * 2
             self.hp = self.max_hp
+            self.exp = 0
+            self.gold = 0
 
         def modifier(self, stat_name):
             score = self.stats.get(stat_name, 10)
@@ -99,7 +148,9 @@ try:
                 "inventory": self.inventory,
                 "stats": self.stats,
                 "hp": self.hp,
-                "max_hp": self.max_hp
+                "max_hp": self.max_hp,
+                "exp": self.exp,
+                "gold": self.gold
             }
 
         def load_from_dict(self, data):
@@ -108,6 +159,8 @@ try:
             self.stats = data.get("stats", default_stats())
             self.max_hp = data.get("max_hp", 10 + self.modifier("con") * 2)
             self.hp = data.get("hp", self.max_hp)
+            self.exp = data.get("exp", 0)
+            self.gold = data.get("gold", 0)
 
     class GameState:
         def __init__(self, rooms, player):
@@ -147,7 +200,8 @@ try:
             "A narrow hallway stretches east and west. The foyer is south.",
             {"south": "foyer", "west": "kitchen", "east": None},
             items=[],
-            locked_exits={"east": "unlock_study_door"}
+            locked_exits={"east": "unlock_study_door"},
+            monsters=["goblin_01"]
         )
 
         study = Room(
@@ -195,6 +249,19 @@ try:
         return f"{label.upper():3} {score:2} ({sign}{mod})"
 
     # ---------------------------------------------------------
+    # Combat Helpers
+    # ---------------------------------------------------------
+    def attack_roll(gs, monster):
+        roll = random.randint(1, 20)
+        total = roll + gs.player.modifier("str")
+        return roll, total
+
+    def monster_attack(gs, monster):
+        roll = random.randint(1, 20)
+        total = roll + monster.attack_bonus
+        return roll, total
+
+    # ---------------------------------------------------------
     # Save / Load Helpers
     # ---------------------------------------------------------
     def save_game(gs):
@@ -224,6 +291,10 @@ try:
             item_names = ", ".join(ITEMS[i].name for i in room.items)
             text += f"You see here: {item_names}\n"
 
+        if room.monsters:
+            mons = ", ".join(MONSTERS[m].name for m in room.monsters)
+            text += f"Enemies present: {mons}\n"
+
         exits = []
         for direction, target in room.exits.items():
             if target is None:
@@ -231,18 +302,45 @@ try:
             else:
                 exits.append(direction)
 
-        if exits:
-            text += "Exits: " + ", ".join(exits)
-        else:
-            text += "There are no obvious exits."
-
+        text += "Exits: " + ", ".join(exits)
         return text
+        
+    def cmd_wait(gs, arg):
+        room = get_current_room(gs)
+
+        # Base message
+        result = "You wait for a moment...\n"
+
+        # If monsters are present, they get a free attack
+        if room.monsters:
+            mid = room.monsters[0]
+            monster = MONSTERS[mid]
+
+            mroll, mtotal = monster_attack(gs, monster)
+            result += f"The {monster.name} attacks while you wait! (Roll {mroll} + {monster.attack_bonus} = {mtotal})\n"
+
+            player_ac = 10 + gs.player.modifier("dex")
+            if mtotal >= player_ac:
+                dmg = random.randint(1, monster.damage_die)
+                gs.player.hp -= dmg
+                result += f"It hits you for {dmg} damage!\n"
+
+                if gs.player.hp <= 0:
+                    gs.running = False
+                    return result + "You have died."
+            else:
+                result += "It misses you.\n"
+
+        return result
 
     def cmd_go(gs, direction):
+        room = get_current_room(gs)
+
+        if room.monsters:
+            return "You cannot flee while enemies block your path."
+
         if not direction:
             return "Go where?"
-
-        room = get_current_room(gs)
 
         if direction not in room.exits:
             return f"You can't go '{direction}' from here."
@@ -256,9 +354,13 @@ try:
     def cmd_inventory(gs, arg):
         inv = gs.player.inventory
         if not inv:
-            return "You are carrying nothing."
-        names = ", ".join(ITEMS[i].name for i in inv)
-        return f"You are carrying: {names}"
+            text = "You are carrying nothing.\n"
+        else:
+            names = ", ".join(ITEMS[i].name for i in inv)
+            text = f"You are carrying: {names}\n"
+
+        text += f"Gold: {gs.player.gold}"
+        return text
 
     def cmd_examine(gs, arg):
         if not arg:
@@ -267,13 +369,25 @@ try:
         room = get_current_room(gs)
         inv = gs.player.inventory
 
+        # Inventory items
         iid = find_item_by_name(arg, inv)
         if iid:
             return ITEMS[iid].description
 
+        # Room items
         iid = find_item_by_name(arg, room.items)
         if iid:
             return ITEMS[iid].description
+
+        # Monsters
+        for mid in room.monsters:
+            monster = MONSTERS[mid]
+            if monster.name.lower() == arg.lower():
+                return (
+                    f"{monster.description}\n"
+                    f"HP: {monster.hp}\n"
+                    f"AC: {monster.ac}"
+                )
 
         return f"You see no '{arg}'."
 
@@ -334,7 +448,54 @@ try:
             mod = p.modifier(label)
             lines.append(format_stat_line(label, score, mod))
         lines.append(f"HP {p.hp}/{p.max_hp}")
+        lines.append(f"EXP {p.exp}")
         return "\n".join(lines)
+
+    def cmd_attack(gs, arg):
+        room = get_current_room(gs)
+
+        if not room.monsters:
+            return "There is nothing here to attack."
+
+        mid = room.monsters[0]
+        monster = MONSTERS[mid]
+
+        # Player attack
+        roll, total = attack_roll(gs, monster)
+        result = f"You attack the {monster.name}! (Roll {roll} + {gs.player.modifier('str')} = {total})\n"
+
+        if total >= monster.ac:
+            dmg = random.randint(1, 6) + gs.player.modifier("str")
+            dmg = max(1, dmg)
+            monster.hp -= dmg
+            result += f"You hit for {dmg} damage!\n"
+
+            if monster.hp <= 0:
+                result += f"The {monster.name} dies!\n"
+                gs.player.exp += monster.exp_reward
+                gs.player.gold += monster.gold_reward
+                room.monsters.remove(mid)
+                return result + f"You gain {monster.exp_reward} EXP and {monster.gold_reward} gold."
+        else:
+            result += "You miss!\n"
+
+        # Monster counterattack
+        mroll, mtotal = monster_attack(gs, monster)
+        result += f"The {monster.name} attacks! (Roll {mroll} + {monster.attack_bonus} = {mtotal})\n"
+
+        player_ac = 10 + gs.player.modifier("dex")
+        if mtotal >= player_ac:
+            dmg = random.randint(1, monster.damage_die)
+            gs.player.hp -= dmg
+            result += f"It hits you for {dmg} damage!\n"
+
+            if gs.player.hp <= 0:
+                gs.running = False
+                return result + "You have died."
+        else:
+            result += "It misses you.\n"
+
+        return result
 
     def cmd_quit(gs, arg):
         gs.running = False
@@ -345,10 +506,11 @@ try:
             "Available commands:\n"
             "  look / l\n"
             "  go <direction>\n"
-            "  examine <item>\n"
+            "  examine <item/monster>\n"
             "  take <item>\n"
             "  drop <item>\n"
             "  use <item>\n"
+            "  attack\n"
             "  inventory / i\n"
             "  stats\n"
             "  save\n"
@@ -380,6 +542,7 @@ try:
         "get": cmd_take,
         "drop": cmd_drop,
         "use": cmd_use,
+        "attack": cmd_attack,
         "stats": cmd_stats,
         "quit": cmd_quit,
         "exit": cmd_quit,
@@ -387,6 +550,7 @@ try:
         "?": cmd_help,
         "save": cmd_save,
         "load": cmd_load,
+        "wait": cmd_wait,
     }
 
     # ---------------------------------------------------------
@@ -417,6 +581,15 @@ try:
     # ---------------------------------------------------------
     def main():
         gs = build_world()
+
+        # --- NEW: Display intro.txt if it exists ---
+        if os.path.exists("intro.txt"):
+            try:
+                with open("intro.txt", "r", encoding="utf-8") as f:
+                    print(f.read())
+            except Exception as e:
+                print(f"[Could not load intro.txt: {e}]")
+        # -------------------------------------------
 
         print("Welcome to LocalMUD (Minimal Core).")
         print("Type 'help' for commands.\n")
