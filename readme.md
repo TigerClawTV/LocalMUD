@@ -14,13 +14,15 @@ This is a personal game project developed by Alex, originally sparked by a desir
 - [System] added rooms.py to store rooms data outside of main.py
 - [System] added items.py to store items data outside of main.py
 - [Documentation] added a sweet comment header to main.py explaining its contents. I'm sure it will go out of date quickly.
+- [System] added a room validation. If you try and move from one room to another, but that room isnt found, it won't crash the game.
+- [System] added a room link checker that runs when the game starts to make sure everything links properly.
 
 ### Notes for future
-- Room data needs to be updated to use coordinents. 
-- Room and Look data needs to be updated to give the rooms extended descriptions when using the look command.
 - Save and load functions work but should be altered to allow for multiple saves.
 - Start NPC Mechanics. (Eeek)
 
+### Changed
+- [World] Changed the way rooms work to utilize region names as well as coordinents.
 ---
 
 ## Lore Fragments

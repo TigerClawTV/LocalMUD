@@ -165,7 +165,7 @@ try:
     # ---------------------------------------------------------
     def cmd_look(gs, arg):
         room = get_current_room(gs)
-        text = f"{room.name}\n{room.description}\n"
+        text = f"{room.name}\n{room.long_desc}\n"
 
         if room.items:
             item_names = ", ".join(ITEMS[i].name for i in room.items)
@@ -221,11 +221,21 @@ try:
         if direction not in room.exits:
             return f"You can't go '{direction}' from here."
 
-        if room.exits[direction] is None:
+        target = room.exits[direction]
+
+        if target is None:
             return f"The way {direction} is locked."
 
-        gs.player.current_room_id = room.exits[direction]
-        return f"You go {direction}.\n\n{cmd_look(gs, '')}"
+        # NEW: Validate that the target room actually exists
+        if target not in gs.rooms:
+            return f"You try to go {direction}, but the way leads nowhere."
+
+        # Move the player
+        gs.player.current_room_id = target
+        new_room = get_current_room(gs)
+        return f"You go {direction}.\n\n{new_room.short_desc}"
+
+
 
     def cmd_inventory(gs, arg):
         inv = gs.player.inventory
@@ -452,6 +462,78 @@ try:
         rooms = build_world()
         player = Player("foyer")
         gs = GameState(rooms, player)
+
+        def validate_world(rooms):
+            errors = []
+            warnings = []
+
+            # Map coords → room_id to detect collisions
+            coord_map = {}
+
+            # Direction coordinate offsets
+            DIR_OFFSETS = {
+                "north": (0, 1, 0),
+                "south": (0, -1, 0),
+                "east":  (1, 0, 0),
+                "west":  (-1, 0, 0),
+                "up":    (0, 0, 1),
+                "down":  (0, 0, -1),
+            }
+
+            # 1) Check for coordinate collisions
+            for rid, room in rooms.items():
+                if room.coords in coord_map:
+                    errors.append(
+                        f"Coordinate collision: {rid} and {coord_map[room.coords]} both at {room.coords}"
+                    )
+                else:
+                    coord_map[room.coords] = rid
+
+            # 2) Validate exits
+            for rid, room in rooms.items():
+                x, y, z, region = room.coords
+
+                for direction, target in room.exits.items():
+                    if target is None:
+                        continue  # locked exit, skip
+
+                    # 2a) Check that target room exists
+                    if target not in rooms:
+                        errors.append(
+                            f"{rid}: exit '{direction}' points to missing room '{target}'"
+                        )
+                        continue
+
+                    target_room = rooms[target]
+
+                    # 2b) Check coordinate alignment
+                    if direction in DIR_OFFSETS:
+                        dx, dy, dz = DIR_OFFSETS[direction]
+                        expected = (x + dx, y + dy, z + dz, region)
+
+                        if target_room.coords != expected:
+                            warnings.append(
+                                f"{rid}: exit '{direction}' leads to {target}, "
+                                f"but coordinates don't match expected {expected} "
+                                f"(actual {target_room.coords})"
+                            )
+
+                    # 2c) Check reciprocal exits (optional but recommended)
+                    reverse = {
+                        "north": "south",
+                        "south": "north",
+                        "east": "west",
+                        "west": "east",
+                        "up": "down",
+                        "down": "up",
+                    }.get(direction)
+
+                    if reverse and rid not in target_room.exits.values():
+                        warnings.append(
+                            f"{rid}: exit '{direction}' to {target} has no reciprocal '{reverse}' exit"
+                        )
+
+            return errors, warnings
 
 
         # --- NEW: Display intro.txt if it exists ---
