@@ -1,4 +1,4 @@
-# LocalMUD Version 0.9.0
+# LocalMUD
 
 LocalMUD is a modular, parser-driven RPG with a retro sensibility and creeping metaphysics. Built in Python, it blends old-school MUD mechanics with narrative-driven exploration, stat-based character creation, and the persistent presence of the Echo Sovereign.
 
@@ -6,18 +6,20 @@ This is a personal game project developed by Alex, originally sparked by a desir
 
 ---
 
-# Changes in version 0.9.1 
+# Changes in version 0.9.2 
 
 ### Added
-- [System] Simple combat system added!
-- [Parser] Expanded the 'Examine' command to allow for examining monsters.
+- [System] added combat.py to refactor combat mechanics into thier own sheet.
+- [System] added monsters.py to store monster data outside of main.py
+- [System] added rooms.py to store rooms data outside of main.py
+- [System] added items.py to store items data outside of main.py
+- [Documentation] added a sweet comment header to main.py explaining its contents. I'm sure it will go out of date quickly.
 
-### Changed
-- [System] Restored the old splash screen to display when the game first opens
-
-### Notes
-	-Monster behavior is scattered. I need a single difinitive function that can be called whenever I need the monster to attack.
-	-For examples of this, see the wait command.
+### Notes for future
+- Room data needs to be updated to use coordinents. 
+- Room and Look data needs to be updated to give the rooms extended descriptions when using the look command.
+- Save and load functions work but should be altered to allow for multiple saves.
+- Start NPC Mechanics. (Eeek)
 
 ---
 

@@ -4,119 +4,55 @@ import json
 import os
 import random
 
+from combat import player_attack, monster_attack, monster_free_attack
+from rooms import build_world
+from monsters import MONSTERS
+from items import ITEMS
+
+SAVE_FILE = "savegame.json"
+
+# Player class
+# GameState class
+
+# Utility functions:
+#   get_current_room
+#   find_item_by_name
+#   format_stat_line
+
+# Save/load functions
+
+# Command handlers:
+#   cmd_look
+#   cmd_wait
+#   cmd_go
+#   cmd_inventory
+#   cmd_examine
+#   cmd_take
+#   cmd_drop
+#   cmd_use
+#   cmd_stats
+#   cmd_attack
+#   cmd_quit
+#   cmd_help
+#   cmd_save
+#   cmd_load
+
+# COMMANDS dict
+
+# parse_command
+# dispatch
+
+# main()
+
 
 try:
     SAVE_FILE = "savegame.json"
 
-    # ---------------------------------------------------------
-    # Item Definitions
-    # ---------------------------------------------------------
-    class Item:
-        def __init__(self, id, name, description, use_effect=None):
-            self.id = id
-            self.name = name
-            self.description = description
-            self.use_effect = use_effect
-
-        def to_dict(self):
-            return {
-                "id": self.id,
-                "name": self.name,
-                "description": self.description,
-                "use_effect": self.use_effect
-            }
-
-        @staticmethod
-        def from_dict(data):
-            return Item(
-                data["id"],
-                data["name"],
-                data["description"],
-                data.get("use_effect")
-            )
-
-    ITEMS = {
-        "rusty_key_01": Item(
-            "rusty_key_01",
-            "rusty key",
-            "A corroded iron key. It looks like it might still work.",
-            use_effect="unlock_study_door"
-        ),
-        "torch_01": Item(
-            "torch_01",
-            "torch",
-            "A wooden torch. It is unlit."
-        ),
-    }
-
-    # ---------------------------------------------------------
-    # Monster Definitions
-    # ---------------------------------------------------------
-    class Monster:
-        def __init__(self, id, name, description, hp, ac, attack_bonus, damage_die, exp_reward, gold_reward):
-            self.id = id
-            self.name = name
-            self.description = description
-            self.hp = hp
-            self.ac = ac
-            self.attack_bonus = attack_bonus
-            self.damage_die = damage_die
-            self.exp_reward = exp_reward
-            self.gold_reward = gold_reward
-
-        def to_dict(self):
-            return {
-                "id": self.id,
-                "hp": self.hp
-            }
-
-        def load_from_dict(self, data):
-            self.hp = data.get("hp", self.hp)
-
-    MONSTERS = {
-        "goblin_01": Monster(
-            "goblin_01",
-            "goblin",
-            "A small, wiry goblin with sharp teeth and a nasty grin.",
-            hp=6,
-            ac=12,
-            attack_bonus=2,
-            damage_die=6,
-            exp_reward=15,
-            gold_reward=5
-        )
-    }
+ 
 
     # ---------------------------------------------------------
     # Core Data Structures
     # ---------------------------------------------------------
-    class Room:
-        def __init__(self, id, name, description, exits=None, items=None, locked_exits=None, monsters=None):
-            self.id = id
-            self.name = name
-            self.description = description
-            self.exits = exits or {}
-            self.items = items or []
-            self.locked_exits = locked_exits or {}
-            self.monsters = monsters or []
-
-        def to_dict(self):
-            return {
-                "items": self.items,
-                "locked_exits": self.locked_exits,
-                "monsters": [MONSTERS[m].to_dict() for m in self.monsters]
-            }
-
-        def load_from_dict(self, data):
-            self.items = data.get("items", [])
-            self.locked_exits = data.get("locked_exits", {})
-            monster_data = data.get("monsters", [])
-            self.monsters = []
-            for mdata in monster_data:
-                mid = mdata["id"]
-                if mid in MONSTERS:
-                    MONSTERS[mid].load_from_dict(mdata)
-                    self.monsters.append(mid)
 
     def default_stats():
         return {
@@ -127,6 +63,8 @@ try:
             "wis": 10,
             "cha": 10,
         }
+
+
 
     class Player:
         def __init__(self, starting_room):
@@ -182,53 +120,7 @@ try:
                     if rid in self.rooms:
                         self.rooms[rid].load_from_dict(rdata)
 
-    # ---------------------------------------------------------
-    # World Builder
-    # ---------------------------------------------------------
-    def build_world():
-        foyer = Room(
-            "foyer",
-            "Foyer",
-            "You are standing in a small foyer. A hallway leads north.",
-            {"north": "hallway"},
-            items=["rusty_key_01"]
-        )
 
-        hallway = Room(
-            "hallway",
-            "Hallway",
-            "A narrow hallway stretches east and west. The foyer is south.",
-            {"south": "foyer", "west": "kitchen", "east": None},
-            items=[],
-            locked_exits={"east": "unlock_study_door"},
-            monsters=["goblin_01"]
-        )
-
-        study = Room(
-            "study",
-            "Study",
-            "A quiet study lined with books. The hallway is to the west.",
-            {"west": "hallway"},
-            items=["torch_01"]
-        )
-
-        kitchen = Room(
-            "kitchen",
-            "Kitchen",
-            "A cozy kitchen that smells faintly of coffee. The hallway is to the east.",
-            {"east": "hallway"},
-            items=[]
-        )
-
-        rooms = {
-            "foyer": foyer,
-            "hallway": hallway,
-            "study": study,
-            "kitchen": kitchen,
-        }
-
-        player = Player("foyer")
-        return GameState(rooms, player)
 
     # ---------------------------------------------------------
     # Utility
@@ -248,18 +140,6 @@ try:
         sign = "+" if mod >= 0 else ""
         return f"{label.upper():3} {score:2} ({sign}{mod})"
 
-    # ---------------------------------------------------------
-    # Combat Helpers
-    # ---------------------------------------------------------
-    def attack_roll(gs, monster):
-        roll = random.randint(1, 20)
-        total = roll + gs.player.modifier("str")
-        return roll, total
-
-    def monster_attack(gs, monster):
-        roll = random.randint(1, 20)
-        total = roll + monster.attack_bonus
-        return roll, total
 
     # ---------------------------------------------------------
     # Save / Load Helpers
@@ -316,16 +196,12 @@ try:
             mid = room.monsters[0]
             monster = MONSTERS[mid]
 
-            mroll, mtotal = monster_attack(gs, monster)
-            result += f"The {monster.name} attacks while you wait! (Roll {mroll} + {monster.attack_bonus} = {mtotal})\n"
+            ma = monster_free_attack(gs, monster)
+            result += f"The {monster.name} attacks while you wait! (Roll {ma['roll']} + {monster.attack_bonus} = {ma['total']})\n"
 
-            player_ac = 10 + gs.player.modifier("dex")
-            if mtotal >= player_ac:
-                dmg = random.randint(1, monster.damage_die)
-                gs.player.hp -= dmg
-                result += f"It hits you for {dmg} damage!\n"
-
-                if gs.player.hp <= 0:
+            if ma["hit"]:
+                result += f"It hits you for {ma['damage']} damage!\n"
+                if ma["player_dead"]:
                     gs.running = False
                     return result + "You have died."
             else:
@@ -460,17 +336,13 @@ try:
         mid = room.monsters[0]
         monster = MONSTERS[mid]
 
-        # Player attack
-        roll, total = attack_roll(gs, monster)
-        result = f"You attack the {monster.name}! (Roll {roll} + {gs.player.modifier('str')} = {total})\n"
+        # Player attacks
+        pa = player_attack(gs, monster)
+        result = f"You attack the {monster.name}! (Roll {pa['roll']} + {gs.player.modifier('str')} = {pa['total']})\n"
 
-        if total >= monster.ac:
-            dmg = random.randint(1, 6) + gs.player.modifier("str")
-            dmg = max(1, dmg)
-            monster.hp -= dmg
-            result += f"You hit for {dmg} damage!\n"
-
-            if monster.hp <= 0:
+        if pa["hit"]:
+            result += f"You hit for {pa['damage']} damage!\n"
+            if pa["monster_dead"]:
                 result += f"The {monster.name} dies!\n"
                 gs.player.exp += monster.exp_reward
                 gs.player.gold += monster.gold_reward
@@ -480,22 +352,19 @@ try:
             result += "You miss!\n"
 
         # Monster counterattack
-        mroll, mtotal = monster_attack(gs, monster)
-        result += f"The {monster.name} attacks! (Roll {mroll} + {monster.attack_bonus} = {mtotal})\n"
+        ma = monster_attack(gs, monster)
+        result += f"The {monster.name} attacks! (Roll {ma['roll']} + {monster.attack_bonus} = {ma['total']})\n"
 
-        player_ac = 10 + gs.player.modifier("dex")
-        if mtotal >= player_ac:
-            dmg = random.randint(1, monster.damage_die)
-            gs.player.hp -= dmg
-            result += f"It hits you for {dmg} damage!\n"
-
-            if gs.player.hp <= 0:
+        if ma["hit"]:
+            result += f"It hits you for {ma['damage']} damage!\n"
+            if ma["player_dead"]:
                 gs.running = False
                 return result + "You have died."
         else:
             result += "It misses you.\n"
 
         return result
+
 
     def cmd_quit(gs, arg):
         gs.running = False
@@ -580,7 +449,10 @@ try:
     # Main Game Loop
     # ---------------------------------------------------------
     def main():
-        gs = build_world()
+        rooms = build_world()
+        player = Player("foyer")
+        gs = GameState(rooms, player)
+
 
         # --- NEW: Display intro.txt if it exists ---
         if os.path.exists("intro.txt"):

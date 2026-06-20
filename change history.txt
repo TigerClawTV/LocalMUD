@@ -1,3 +1,23 @@
+# Change History
+
+## This is an archive of the old change logs.
+---
+
+# Changes in version 0.9.1 
+
+### Added
+- [System] Simple combat system added!
+- [Parser] Expanded the 'Examine' command to allow for examining monsters.
+
+### Changed
+- [System] Restored the old splash screen to display when the game first opens
+
+### Notes
+	-Monster behavior is scattered. I need a single difinitive function that can be called whenever I need the monster to attack.
+	-For examples of this, see the wait command.
+
+-------------------
+
 # Changes in version 0.9.0 
 
 ### Added
@@ -9,3 +29,9 @@
 
 ### Changed
 - [System] The new build does not use Curses making it much easier to play at the cost of UI flexability. I can no longer use a traditional title screen and menu like the last build had. Now the game really does function like an old school MUD, completely from the console.
+
+
+-------------------
+# Started from Scratch
+### The updates below this line apply to the old version of LocalMUD that used 'Curses' to handle the HUD elements.
+-------------------
