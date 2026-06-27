@@ -233,7 +233,15 @@ try:
         # Move the player
         gs.player.current_room_id = target
         new_room = get_current_room(gs)
-        return f"You go {direction}.\n\n{new_room.short_desc}"
+
+        # NEW: Monster alert on entering a room
+        monster_alert = ""
+        if new_room.monsters:
+            names = ", ".join(MONSTERS[mid].name for mid in new_room.monsters)
+            monster_alert = f"~~ENCOUNTER!~~ {names.capitalize()} is here!\n\n"
+
+        return f"You go {direction}.\n\n{monster_alert}{new_room.short_desc}"
+
 
 
 

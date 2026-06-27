@@ -6,23 +6,16 @@ This is a personal game project developed by Alex, originally sparked by a desir
 
 ---
 
-# Changes in version 0.9.2 
+# Changes in version 0.9.3 
 
-### Added
-- [System] added combat.py to refactor combat mechanics into thier own sheet.
-- [System] added monsters.py to store monster data outside of main.py
-- [System] added rooms.py to store rooms data outside of main.py
-- [System] added items.py to store items data outside of main.py
-- [Documentation] added a sweet comment header to main.py explaining its contents. I'm sure it will go out of date quickly.
-- [System] added a room validation. If you try and move from one room to another, but that room isnt found, it won't crash the game.
-- [System] added a room link checker that runs when the game starts to make sure everything links properly.
+### Changed
+- [Parser] Updated the parser to better announce Combat.
 
 ### Notes for future
 - Save and load functions work but should be altered to allow for multiple saves.
 - Start NPC Mechanics. (Eeek)
+- Need to add multiple region handeling so I can start rebuilding the world I had.
 
-### Changed
-- [World] Changed the way rooms work to utilize region names as well as coordinents.
 ---
 
 ## Lore Fragments
