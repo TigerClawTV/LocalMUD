@@ -10,6 +10,8 @@ This is a personal game project developed by Alex, originally sparked by a desir
 
 ### Changed
 - [Parser] Updated the parser to better announce Combat.
+- [System] Changed how rooms are handled. A loader now loads each region from a different file to prevent a single huge file for all room data.
+- [System] Got inturupted trying to set it up so that the player gets 1xp for each visted room. The Save/Load functions need to be updated to show the visted room 
 
 ### Notes for future
 - Save and load functions work but should be altered to allow for multiple saves.

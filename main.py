@@ -8,6 +8,7 @@ from combat import player_attack, monster_attack, monster_free_attack
 from rooms import build_world
 from monsters import MONSTERS
 from items import ITEMS
+from world.loader import load_all_regions
 
 SAVE_FILE = "savegame.json"
 
@@ -75,6 +76,7 @@ try:
             self.hp = self.max_hp
             self.exp = 0
             self.gold = 0
+            self.visited_rooms = set()
 
         def modifier(self, stat_name):
             score = self.stats.get(stat_name, 10)
@@ -467,7 +469,7 @@ try:
     # Main Game Loop
     # ---------------------------------------------------------
     def main():
-        rooms = build_world()
+        rooms = load_all_regions()
         player = Player("foyer")
         gs = GameState(rooms, player)
 
