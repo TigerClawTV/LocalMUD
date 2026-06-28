@@ -8,12 +8,16 @@ This is a personal game project developed by Alex, originally sparked by a desir
 
 # Changes in version 0.9.3 
 
+### Added
+- [Player] Player now recieves 1xp each time they enter a room for the first time.
+
 ### Changed
 - [Parser] Updated the parser to better announce Combat.
 - [System] Changed how rooms are handled. A loader now loads each region from a different file to prevent a single huge file for all room data.
 - [System] Got inturupted trying to set it up so that the player gets 1xp for each visted room. The Save/Load functions need to be updated to show the visted room 
 
 ### Notes for future
+- When returning to the starting room after leaving, the player is again given 1xp. Fixing this later because I intend to change the starting place.
 - Save and load functions work but should be altered to allow for multiple saves.
 - Start NPC Mechanics. (Eeek)
 - Need to add multiple region handeling so I can start rebuilding the world I had.

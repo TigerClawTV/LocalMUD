@@ -147,10 +147,14 @@ try:
     # Save / Load Helpers
     # ---------------------------------------------------------
     def save_game(gs):
+        # Convert the entire game state (player + rooms) into a dict
         data = gs.to_dict()
+
         with open(SAVE_FILE, "w") as f:
             json.dump(data, f, indent=2)
+
         return "Game saved."
+
 
     def load_game(gs):
         if not os.path.exists(SAVE_FILE):
@@ -159,8 +163,11 @@ try:
         with open(SAVE_FILE, "r") as f:
             data = json.load(f)
 
+        # Restore the entire game state (player + rooms)
         gs.load_from_dict(data)
+
         return "Game loaded."
+
 
     # ---------------------------------------------------------
     # Command Handlers
@@ -228,7 +235,7 @@ try:
         if target is None:
             return f"The way {direction} is locked."
 
-        # NEW: Validate that the target room actually exists
+        # Validate that the target room actually exists
         if target not in gs.rooms:
             return f"You try to go {direction}, but the way leads nowhere."
 
@@ -236,13 +243,20 @@ try:
         gs.player.current_room_id = target
         new_room = get_current_room(gs)
 
-        # NEW: Monster alert on entering a room
+        # NEW: First-time room discovery XP
+        xp_msg = ""
+        if new_room.id not in gs.player.visited_rooms:
+            gs.player.visited_rooms.add(new_room.id)
+            gs.player.exp += 1
+            xp_msg = "You discover this place for the first time. (+1 XP)\n\n"
+
+        # Monster alert on entering a room
         monster_alert = ""
         if new_room.monsters:
             names = ", ".join(MONSTERS[mid].name for mid in new_room.monsters)
             monster_alert = f"~~ENCOUNTER!~~ {names.capitalize()} is here!\n\n"
 
-        return f"You go {direction}.\n\n{monster_alert}{new_room.short_desc}"
+        return f"You go {direction}.\n\n{xp_msg}{monster_alert}{new_room.short_desc}"
 
 
 

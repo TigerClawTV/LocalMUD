@@ -12,7 +12,7 @@
       "wis": 10,
       "cha": 10
     },
-    "hp": 3,
+    "hp": 14,
     "max_hp": 14,
     "exp": 0,
     "gold": 0
@@ -21,7 +21,13 @@
     "foyer": {
       "items": [],
       "locked_exits": {},
-      "monsters": []
+      "monsters": [],
+      "coords": [
+        0,
+        0,
+        0,
+        "house"
+      ]
     },
     "hallway": {
       "items": [],
@@ -31,8 +37,14 @@
       "monsters": [
         {
           "id": "goblin_01",
-          "hp": 2
+          "hp": 6
         }
+      ],
+      "coords": [
+        1,
+        0,
+        0,
+        "house"
       ]
     },
     "study": {
@@ -40,12 +52,24 @@
         "torch_01"
       ],
       "locked_exits": {},
-      "monsters": []
+      "monsters": [],
+      "coords": [
+        2,
+        0,
+        0,
+        "house"
+      ]
     },
     "kitchen": {
       "items": [],
       "locked_exits": {},
-      "monsters": []
+      "monsters": [],
+      "coords": [
+        1,
+        -1,
+        0,
+        "house"
+      ]
     }
   }
 }
